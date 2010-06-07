@@ -176,48 +176,48 @@ class IContact_Core {
 	
 	protected function callResource($url, $method, $data = null) {
 		$url    = Kohana::config('icontact.app_url').$url;
-		$handle = curl_init();
+		$handle = new Curl();
 		
 		// application/xml
-		
-		$headers = array(
-			'Accept: text/xml',
-			'Content-Type: text/xml',
-			'Api-Version: 2.0',
-			'Api-AppId: ' . Kohana::config('icontact.app_id'),
-			'Api-Username: ' . Kohana::config('icontact.username'),
-			'Api-Password: ' . Kohana::config('icontact.password'),
-		);
 
-		curl_setopt($handle, CURLOPT_URL, $url);
-		curl_setopt($handle, CURLOPT_HTTPHEADER, $headers);
-		curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($handle, CURLOPT_SSL_VERIFYHOST, false);
-		curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
+		$handle->setopt_array(array(
+			CURLOPT_URL => $url,
+			CURLOPT_HTTPHEADER => array(
+				'Accept: text/xml',
+				'Content-Type: text/xml',
+				'Api-Version: 2.0',
+				'Api-AppId: ' . Kohana::config('icontact.app_id'),
+				'Api-Username: ' . Kohana::config('icontact.username'),
+				'Api-Password: ' . Kohana::config('icontact.password'),
+			),
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_SSL_VERIFYHOST => false,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_POST => FALSE
+		));
 
-		switch ($method) {
+		switch($method) {
 			case 'POST':
-				curl_setopt($handle, CURLOPT_POST, true);
-				curl_setopt($handle, CURLOPT_POSTFIELDS, json_encode($data));
+				$handle->setopt_array(array(
+					CURLOPT_POST => true,
+					CURLOPT_POSTFIELDS => json_encode($data)
+				));
 			break;
 			case 'PUT':
-				curl_setopt($handle, CURLOPT_PUT, true);
-				$file_handle = fopen($data, 'r');
-				curl_setopt($handle, CURLOPT_INFILE, $file_handle);
+				$handle->setopt_array(array(
+					CURLOPT_PUT => true,
+					CURLOPT_INFILE => fopen($data, 'r')
+				));
 			break;
 			case 'DELETE':
-				curl_setopt($handle, CURLOPT_CUSTOMREQUEST, 'DELETE');
+				$handle->setopt(CURLOPT_CUSTOMREQUEST, 'DELETE');
 			break;
 		}
+		
+		$code = $handle->exec(array(STATUS_CODE_SUCCESS));
+		$response = $handle->result();
 
-		$response = curl_exec($handle);
-		echo curl_error($handle);
-		print_r(curl_getinfo($handle));
-		print_r($response);exit();
 		$response = json_decode($response, true);
-		$code = curl_getinfo($handle, CURLINFO_HTTP_CODE);
-
-		curl_close($handle);
 
 		return array(
 			'code' => $code,
