@@ -20,6 +20,12 @@ while ($status != 'complete') {
 */
 
 class IContact_Core {
+	public function __construct() {
+		parent::__construct();
+		
+		$this->accountID = null;
+		$this->clientFolderID = null;
+	}
 	// upload contact list functions
 		
 	public function uploadContactFile($file) {
@@ -37,11 +43,9 @@ class IContact_Core {
 	}
 	
 	function createUploadReference() {
-		global $accountId, $clientFolderId, $listId;
-
 		$uploadId = null;
 
-		$response = $this->callResource("/a/{$accountId}/c/{$clientFolderId}/uploads",
+		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/uploads",
 			'POST', array(
 				array(
 					'action' => 'add',
@@ -71,9 +75,7 @@ class IContact_Core {
 	}
 	
 	protected function uploadData($uploadId, $file) {
-		global $accountId, $clientFolderId;
-
-		$response = $this->callResource("/a/{$accountId}/c/{$clientFolderId}/uploads/{$uploadId}/data", 'PUT', $file);
+		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/uploads/{$uploadId}/data", 'PUT', $file);
 
 		if ($response['code'] == STATUS_CODE_SUCCESS) {
 			$uploadId = $response['data']['uploadId'];
@@ -94,10 +96,8 @@ class IContact_Core {
 	}
 	
 	protected function getUploadStatus($uploadId) {
-		global $accountId, $clientFolderId;
-
 		$status = null;
-		$response = $this->callResource("/a/{$accountId}/c/{$clientFolderId}/uploads/{$uploadId}", 'GET');
+		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/uploads/{$uploadId}", 'GET');
 
 		if ($response['code'] == STATUS_CODE_SUCCESS) {
 			$status = $response['data']['status'];
@@ -124,11 +124,13 @@ class IContact_Core {
 	// authentication
 	
 	public function getAuthInfo() {
-		$this->getAccountID();
-	}
-	
-	protected function getAccountID() {
-		print_r($this->callResource('/a/', 'GET'));
+		// grab the account ID
+		$accountIDData = $this->callResource('/a/', 'GET');
+		$this->accountID = $accountIDData['data']['accounts']['0']['accountId'];
+		
+		// grab the client folder
+		$clientFolderData = $this->callResource('/a/'.$this->accountID.'/c/', 'GET');
+		$this->clientFolderID = $clientFolderData['data']['0']['clientFolderId'];
 	}
 	
 	// list management
@@ -177,14 +179,12 @@ class IContact_Core {
 	protected function callResource($url, $method, $data = null) {
 		$url    = Kohana::config('icontact.app_url').$url;
 		$handle = new Curl();
-		
-		// application/xml
 
 		$handle->setopt_array(array(
 			CURLOPT_URL => $url,
 			CURLOPT_HTTPHEADER => array(
-				'Accept: text/xml',
-				'Content-Type: text/xml',
+				'Accept: application/json',
+				'Content-Type: application/json',
 				'Api-Version: 2.0',
 				'Api-AppId: ' . Kohana::config('icontact.app_id'),
 				'Api-Username: ' . Kohana::config('icontact.username'),
@@ -198,6 +198,7 @@ class IContact_Core {
 
 		switch($method) {
 			case 'POST':
+				// note that the POST assumes json data... no xml support yet
 				$handle->setopt_array(array(
 					CURLOPT_POST => true,
 					CURLOPT_POSTFIELDS => json_encode($data)
@@ -216,7 +217,7 @@ class IContact_Core {
 		
 		$code = $handle->exec(array(STATUS_CODE_SUCCESS));
 		$response = $handle->result();
-
+		
 		$response = json_decode($response, true);
 
 		return array(
