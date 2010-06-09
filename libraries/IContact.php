@@ -81,11 +81,8 @@ class IContact_Core {
 			$uploadId = $response['data']['uploads']['0']['uploadId'];
 
 			$warningCount = 0;
-			if (!empty($response['data']['warnings'])) {
-				$warningCount = count($response['data']['warnings']);
-			}
 			
-			if($warningCount > 0) {
+			if (!empty($response['data']['warnings'])) {
 				Kohana::log('error', 'There was warnings when generating an upload reference: '.print_r($response, true));
 			}
 		} else {
@@ -104,12 +101,9 @@ class IContact_Core {
 		if ($response['code'] == STATUS_CODE_SUCCESS) {
 			$uploadId = $response['data']['uploadId'];
 
-			$warningCount = 0;
 			if (!empty($response['data']['warnings'])) {
-				$warningCount = count($response['data']['warnings']);
+				Kohana::log('error', 'There was warnings when uploading icontact data. '.print_r($response, true));
 			}
-			
-			Kohana::log('error', 'There was warnings when uploading icontact data. '.print_r($response, true));
 		} else {
 			Kohana::log('error', 'There was an error while uploading iContact data. '.print_r($response, true));
 			
@@ -126,12 +120,9 @@ class IContact_Core {
 		if ($response['code'] == STATUS_CODE_SUCCESS) {
 			$status = $response['data']['upload']['status'];
 
-			$warningCount = 0;
-			if (!empty($response['data']['warnings'])) {
-				$warningCount = count($response['data']['warnings']);
+			if (!empty($response['data']['upload']['warnings'])) {
+				Kohana::log('error', 'There was warnings when getting upload status: '.print_r($response, true));
 			}
-			
-			Kohana::log('error', 'There was warnings when getting upload status: '.print_r($response, true));
 		} else {
 			$status = 'complete';
 
