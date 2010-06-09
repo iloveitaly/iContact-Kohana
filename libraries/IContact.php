@@ -1,69 +1,84 @@
 <?php
 define('STATUS_CODE_SUCCESS', 200);
 
-/***********************************/
-/** set your account details here **/
-/***********************************/
-
-/*
-$accountId      = 1001413;
-$clientFolderId = 9196527;
-$listId         = 8485;
-
-$uploadId = createUpload();
-uploadData($uploadId, '../data/upload.csv');
-$status = getUpload($uploadId);
-while ($status != 'complete') {
-	$status = getUpload($uploadId);
-	sleep(1);
-}
-*/
-
 class IContact_Core {
 	public function __construct() {
-		parent::__construct();
-		
 		$this->accountID = null;
 		$this->clientFolderID = null;
 	}
+	
 	// upload contact list functions
+	
+	public function uploadContactList($query, $listName, $labels = '') {
+		$db = new Database();
+		$list = $db->query($query)->as_array();
+		$fileName = tempnam('/tmp', 'icontact');
+		$handle = fopen($fileName, "w+");
 		
-	public function uploadContactFile($file) {
-		$referenceID = $this->createUploadReference();
+		if($labels) {
+			fwrite($handle, $labels);
+		}
+		
+		foreach($list as $item) {
+			fputcsv($handle, (array) $item);
+		}
+		
+		$listID = $this->getListIDWithName($listName);
+		$this->uploadContactFile($fileName, $listID);
+		
+		fclose($handle);
+		unlink($fileName);
+	}
+	
+	public function uploadContactFile($file, $listID) {
+		$referenceID = $this->createUploadReference($listID);
 		
 		if(!$referenceID) return false;
 		
-		uploadData($referenceID, $file);
+		$this->uploadData($referenceID, $file);
 		
-		while($this->getUploadStatus($referenceID) != 'complete') {
+		while(($status = $this->getUploadStatus($referenceID)) != 'complete') {
 			sleep(1);
 		}
 		
 		return true;
 	}
 	
-	function createUploadReference() {
+	protected function getListIDWithName($listName) {
+		$listData = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/lists", 'GET');
+		
+		foreach($listData['data']['lists'] as $listItem) {
+			if($listItem['name'] == $listName) {
+				return $listItem['listId'];
+			}
+		}
+		
+		return false;
+	}
+	
+	protected function createUploadReference($listID) {
 		$uploadId = null;
 
 		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/uploads",
 			'POST', array(
 				array(
 					'action' => 'add',
-					'lists'  => array($listId),
+					'listIds'  => $listID
 				)
-			));
+			)
+		);
 
 		if ($response['code'] == STATUS_CODE_SUCCESS) {
-			$uploadId = $response['data']['uploadId'];
+			$uploadId = $response['data']['uploads']['0']['uploadId'];
 
 			$warningCount = 0;
 			if (!empty($response['data']['warnings'])) {
 				$warningCount = count($response['data']['warnings']);
 			}
-
-			echo "<p>Added upload {$uploadId}, with {$warningCount} warnings.</p>\n";
-
-			dump($response['data']);
+			
+			if($warningCount > 0) {
+				Kohana::log('error', 'There was warnings when generating an upload reference: '.print_r($response, true));
+			}
 		} else {
 			Kohana::log('error', 'Error creating upload reference with code: '.$response['code']);
 			Kohana::log('error', 'iContact response data: '.print_r($response['data'], true));
@@ -84,15 +99,15 @@ class IContact_Core {
 			if (!empty($response['data']['warnings'])) {
 				$warningCount = count($response['data']['warnings']);
 			}
-
-			echo "<p>Updated upload {$uploadId}, with {$warningCount} warnings.</p>\n";
-
-			dump($response['data']);
+			
+			Kohana::log('error', 'There was warnings when uploading icontact data. '.print_r($response, true));
 		} else {
-			echo "<p>Error Code: {$response['code']}</p>\n";
-
-			dump($response['data']);
+			Kohana::log('error', 'There was an error while uploading iContact data. '.print_r($response, true));
+			
+			return false;
 		}
+		
+		return true;
 	}
 	
 	protected function getUploadStatus($uploadId) {
@@ -100,22 +115,18 @@ class IContact_Core {
 		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/uploads/{$uploadId}", 'GET');
 
 		if ($response['code'] == STATUS_CODE_SUCCESS) {
-			$status = $response['data']['status'];
+			$status = $response['data']['upload']['status'];
 
 			$warningCount = 0;
 			if (!empty($response['data']['warnings'])) {
 				$warningCount = count($response['data']['warnings']);
 			}
-
-			echo "<p>Added upload {$uploadId}, with {$warningCount} warnings.</p>\n";
-
-			dump($response['data']);
+			
+			Kohana::log('error', 'There was warnings when getting upload status: '.print_r($response, true));
 		} else {
 			$status = 'complete';
 
-			echo "<p>Error Code: {$response['code']}</p>\n";
-
-			dump($response['data']);
+			Kohana::log('error', 'There was an error while uploading icontact: '.print_r($response, true));
 		}
 
 		return $status;
@@ -130,14 +141,12 @@ class IContact_Core {
 		
 		// grab the client folder
 		$clientFolderData = $this->callResource('/a/'.$this->accountID.'/c/', 'GET');
-		$this->clientFolderID = $clientFolderData['data']['0']['clientFolderId'];
+		$this->clientFolderID = $clientFolderData['data']['clientfolders']['0']['clientFolderId'];
 	}
 	
 	// list management
 	
 	public function addList() {
-		global $accountId, $clientFolderId, $welcomeMessageId;
-
 		$listId = null;
 
 		$response = callResource("/a/{$accountId}/c/{$clientFolderId}/lists",
@@ -215,13 +224,12 @@ class IContact_Core {
 			break;
 		}
 		
-		$code = $handle->exec(array(STATUS_CODE_SUCCESS));
+		$return = $handle->exec();
 		$response = $handle->result();
-		
 		$response = json_decode($response, true);
 
 		return array(
-			'code' => $code,
+			'code' => $handle->status(),
 			'data' => $response,
 		);
 	}
