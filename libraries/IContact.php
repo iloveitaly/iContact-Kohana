@@ -1,6 +1,15 @@
 <?php
 define('STATUS_CODE_SUCCESS', 200);
 
+/**
+ * @package     Standard
+ * @subpackage  Libraries
+ * @author		Michael Bianco <info@mabwebdesign.com>, <http://mabblog.com>
+ * 
+ */
+
+// Requires Kohana Curl Module: http://dev.kohanaframework.org/projects/curl
+
 class IContact_Core {
 	public function __construct() {
 		$this->accountID = null;
@@ -142,48 +151,7 @@ class IContact_Core {
 		// grab the client folder
 		$clientFolderData = $this->callResource('/a/'.$this->accountID.'/c/', 'GET');
 		$this->clientFolderID = $clientFolderData['data']['clientfolders']['0']['clientFolderId'];
-	}
-	
-	// list management
-	
-	public function addList() {
-		$listId = null;
-
-		$response = callResource("/a/{$accountId}/c/{$clientFolderId}/lists",
-			'POST', array(
-				array(
-					'name' => 'my new list',
-					'welcomeMessageId'   => $welcomeMessageId,
-					'emailOwnerOnChange' => 0,
-					'welcomeOnManualAdd' => 0,
-					'welcomeOnSignupAdd' => 0,
-				)
-			));
-
-		if ($response['code'] == STATUS_CODE_SUCCESS) {
-			echo "<h1>Success - Add List</h1>\n";
-
-			$listId = $response['data']['lists'][0]['listId'];
-
-			$warningCount = 0;
-			if (!empty($response['data']['warnings'])) {
-				$warningCount = count($response['data']['warnings']);
-			}
-
-			echo "<p>Added list {$listId}, with {$warningCount} warnings.</p>\n";
-
-			dump($response['data']);
-		} else {
-			echo "<h1>Error - Add List</h1>\n";
-
-			echo "<p>Error Code: {$response['code']}</p>\n";
-
-			dump($response['data']);
-		}
-
-		return $listId;
-	}
-	
+	}	
 	
 	protected function callResource($url, $method, $data = null) {
 		$url    = Kohana::config('icontact.app_url').$url;
