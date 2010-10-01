@@ -78,6 +78,11 @@ class IContact_Core {
 		);
 
 		if ($response['code'] == STATUS_CODE_SUCCESS) {
+			if(!isset($response['data']['uploads']['0'])) {
+				Kohana::log('Reported success, but encountered unexpected data structure: '.print_r($response, true));
+				return;
+			}
+			
 			$uploadId = $response['data']['uploads']['0']['uploadId'];
 
 			$warningCount = 0;
