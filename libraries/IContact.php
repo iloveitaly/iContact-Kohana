@@ -10,6 +10,7 @@
 
 class IContact_Core {
 	const STATUS_CODE_SUCCESS = 200;
+	public $queryOptions = array('limit' => 50);
 	
 	public function __construct() {
 		$this->accountID = null;
@@ -133,7 +134,7 @@ class IContact_Core {
 	}
 	
 	protected function getListIDWithName($listName) {
-		$listData = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/lists", 'GET');
+		$listData = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/lists".$this->getQueryOptions(), 'GET');
 
 		foreach($listData['data']['lists'] as $listItem) {
 			if($listItem['name'] == $listName) {
@@ -214,6 +215,14 @@ class IContact_Core {
 		}
 
 		return $status;
+	}
+	
+	// each request can have a bunch of query string options
+	// http://developer.icontact.com/documentation/icontact-application-programming-interface-api#restLikeArchitecture
+	protected function getQueryOptions() {
+		if(empty($this->queryOptions)) return '';
+		
+		return '?'.http_build_query($this->queryOptions, '', '&');
 	}
 	
 	// authentication
