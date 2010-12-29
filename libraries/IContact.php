@@ -57,7 +57,6 @@ class IContact_Core {
 	}
 	
 	public function subscribeContactToList($contactInformation, $listName) {
-		// get list ID
 		$listID = $this->getListIDWithName($listName);
 		
 		if($listID === false) {
@@ -107,15 +106,15 @@ class IContact_Core {
 	}
 	
 	public function addContact($contactInformation) {
-		$response = callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/contacts", 'POST',
-			array(
-				array(
-					'firstName' => 'John',
-					'lastName'  => 'Doe',
-					'email'     => 'john.doe-' . uniqid() . '@example.com',
-				)
-			)
-		);
+		/*
+		Example Subscription:
+		
+		'firstName' => 'John',
+		'lastName'  => 'Doe',
+		'email'     => 'email'
+		*/
+		
+		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/contacts", 'POST', array($contactInformation));
 
 		if($response['code'] == self::STATUS_CODE_SUCCESS) {
 			$contactID = $response['data']['contacts'][0]['contactId'];
@@ -123,19 +122,19 @@ class IContact_Core {
 			if (!empty($response['data']['warnings'])) {
 				Kohana::log('error', 'There was warnings when creating a contact reference: '.print_r($response, true));
 			}
+			
+			return $contactID;
 		} else {
 			Kohana::log('error', 'Error creating upload reference with code: '.$response['code']);
 			Kohana::log('error', 'iContact response data: '.print_r($response['data'], true));
 			
 			return false;
 		}
-
-		return $contactId;
 	}
 	
 	protected function getListIDWithName($listName) {
 		$listData = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/lists", 'GET');
-		
+
 		foreach($listData['data']['lists'] as $listItem) {
 			if($listItem['name'] == $listName) {
 				return $listItem['listId'];
