@@ -1,6 +1,4 @@
 <?php
-define('STATUS_CODE_SUCCESS', 200);
-
 /**
  * @package     Standard
  * @subpackage  Libraries
@@ -11,9 +9,14 @@ define('STATUS_CODE_SUCCESS', 200);
 // Requires Kohana Curl Module: http://dev.kohanaframework.org/projects/curl
 
 class IContact_Core {
+	const STATUS_CODE_SUCCESS = 200;
+	
 	public function __construct() {
 		$this->accountID = null;
 		$this->clientFolderID = null;
+		
+		// if you are creating an iContact instance you are going to need authentication information
+		$this->getAuthInfo();
 	}
 	
 	// upload contact list functions
@@ -53,6 +56,83 @@ class IContact_Core {
 		return true;
 	}
 	
+	public function subscribeContactToList($contactInformation, $listName) {
+		// get list ID
+		$listID = $this->getListIDWithName($listName);
+		
+		if($listID === false) {
+			Kohana::log('error', 'Error finding iContact list with name '.$listName);
+			return false;
+		}
+		
+		// add contact
+		$contactID = $this->addContact($contactInformation);
+		
+		if($contactID === false) {
+			Kohana::log('error', 'Error adding contact to iContact');
+			return false;
+		}
+		
+		$result = $this->subscribeContactIDToListID($contactID, $listID);
+		
+		if($result === false) {
+			Kohana::log('error', 'Error adding iContat contact to list');
+		}
+		
+		return $result;
+	}
+	
+	public function subscribeContactIDToListID($contactID, $listID) {
+		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/subscriptions",
+			'POST', array(
+				array(
+					'contactId' => $contactID,
+					'listId'    => $listID,
+					'status'    => 'normal',
+				),
+			));
+
+		if($response['code'] == self::STATUS_CODE_SUCCESS) {
+			if(!empty($response['data']['warnings'])) {
+				Kohana::log('error', 'There was warnings when generating an upload reference: '.print_r($response, true));
+			}
+			
+			return true;
+		} else {
+			Kohana::log('error', 'Error subscribing contact to list: '.$response['code']);
+			Kohana::log('error', 'iContact response data: '.print_r($response['data'], true));
+			
+			return false;
+		}
+	}
+	
+	public function addContact($contactInformation) {
+		$response = callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/contacts", 'POST',
+			array(
+				array(
+					'firstName' => 'John',
+					'lastName'  => 'Doe',
+					'email'     => 'john.doe-' . uniqid() . '@example.com',
+				)
+			)
+		);
+
+		if($response['code'] == self::STATUS_CODE_SUCCESS) {
+			$contactID = $response['data']['contacts'][0]['contactId'];
+			
+			if (!empty($response['data']['warnings'])) {
+				Kohana::log('error', 'There was warnings when creating a contact reference: '.print_r($response, true));
+			}
+		} else {
+			Kohana::log('error', 'Error creating upload reference with code: '.$response['code']);
+			Kohana::log('error', 'iContact response data: '.print_r($response['data'], true));
+			
+			return false;
+		}
+
+		return $contactId;
+	}
+	
 	protected function getListIDWithName($listName) {
 		$listData = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/lists", 'GET');
 		
@@ -77,7 +157,7 @@ class IContact_Core {
 			)
 		);
 
-		if ($response['code'] == STATUS_CODE_SUCCESS) {
+		if ($response['code'] == self::STATUS_CODE_SUCCESS) {
 			if(!isset($response['data']['uploads']['0'])) {
 				Kohana::log('Reported success, but encountered unexpected data structure: '.print_r($response, true));
 				return;
@@ -103,7 +183,7 @@ class IContact_Core {
 	protected function uploadData($uploadId, $file) {
 		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/uploads/{$uploadId}/data", 'PUT', $file);
 
-		if ($response['code'] == STATUS_CODE_SUCCESS) {
+		if ($response['code'] == self::STATUS_CODE_SUCCESS) {
 			$uploadId = $response['data']['uploadId'];
 
 			if (!empty($response['data']['warnings'])) {
@@ -122,7 +202,7 @@ class IContact_Core {
 		$status = null;
 		$response = $this->callResource("/a/{$this->accountID}/c/{$this->clientFolderID}/uploads/{$uploadId}", 'GET');
 
-		if ($response['code'] == STATUS_CODE_SUCCESS) {
+		if ($response['code'] == self::STATUS_CODE_SUCCESS) {
 			$status = $response['data']['upload']['status'];
 
 			if (!empty($response['data']['upload']['warnings'])) {
